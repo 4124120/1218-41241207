@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代辦事項管理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 400px;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            color: gray;
+        }
+
+        .actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .actions button {
+            font-size: 12px;
+            padding: 5px;
+        }
+
+        .message {
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .message.success {
+            color: green;
+        }
+
+        .message.error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>代辦事項管理</h1>
+
+        <!-- 新增代辦事項表單 -->
+        <form id="add-todo-form">
+            <input type="text" id="student-id" placeholder="學生 ID" required>
+            <input type="text" id="task" placeholder="代辦事項" required>
+            <button type="submit">新增代辦事項</button>
+        </form>
+
+        <!-- 代辦事項清單 -->
+        <ul id="todo-list"></ul>
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        const API_URL = "https://nfutest.pythonanywhere.com/todos"; // 替換為實際 API URL
+        const addForm = document.getElementById("add-todo-form");
+        const todoList = document.getElementById("todo-list");
+        const message = document.getElementById("message");
+
+        // 新增代辦事項
+        addForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const studentId = document.getElementById("student-id").value.trim();
+            const task = document.getElementById("task").value.trim();
+
+            if (!studentId || !task) {
+                displayMessage("請填寫所有欄位！", "error");
+                return;
+            }
+
+            const newTodo = { student_id: studentId, task: task };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(newTodo),
+                });
+
+                if (response.status === 201) {
+                    displayMessage("新增成功！", "success");
+                    addForm.reset();
+                    fetchTodos(studentId);  // Fetch the todos after adding a new one
+                } else {
+                    displayMessage("新增失敗，請稍後重試！", "error");
+                }
+            } catch (error) {
+                console.error(error);
+                displayMessage("伺服器錯誤，請稍後再試！", "error");
+            }
+        });
+
+        // 獲取代辦事項
+        async function fetchTodos(studentId) {
+            try {
+                const response = await fetch(`${API_URL}?student_id=${studentId}`);
+                if (response.status === 200) {
+                    const data = await response.json();
+                    displayTodos(data.todos);
+                } else {
+                    displayMessage("無法獲取代辦事項，請稍後重試！", "error");
+                }
+            } catch (error) {
+                console.error(error);
+                displayMessage("伺服器錯誤，請稍後再試！", "error");
+            }
+        }
+
+        // 更新代辦事項
+        async function updateTodo(todo) {
+            try {
+                const response = await fetch(`${API_URL}/${todo.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        student_id: todo.student_id,
+                        task: todo.task,
+                        completed: todo.completed,
+                    }),
+                });
+
+                if (response.status === 200) {
+                    displayMessage("更新成功！", "success");
+                    fetchTodos(todo.student_id);  // Refresh the todos after updating
+                } else {
+                    displayMessage("更新失敗，請稍後再試！", "error");
+                }
+            } catch (error) {
+                console.error(error);
+                displayMessage("伺服器錯誤，請稍後再試！", "error");
+            }
+        }
+
+        // 刪除代辦事項
+        async function deleteTodo(todo) {
+            const studentId = document.getElementById("student-id").value.trim();
+
+            try {
+                const response = await fetch(`${API_URL}/${todo.id}`, {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ student_id: studentId }),
+                });
+
+                if (response.status === 200) {
+                    displayMessage("代辦事項已刪除", "success");
+                    fetchTodos(studentId);  // Refresh the todos after deletion
+                } else {
+                    displayMessage("刪除失敗，請稍後再試！", "error");
+                }
+            } catch (error) {
+                console.error(error);
+                displayMessage("伺服器錯誤，請稍後再試！", "error");
+            }
+        }
+
+        // 顯示代辦事項
+        function displayTodos(todos) {
+            todoList.innerHTML = "";
+            todos.forEach((todo) => {
+                const li = document.createElement("li");
+                li.className = todo.completed ? "completed" : "";
+                li.textContent = todo.task;
+
+                // 動作按鈕
+                const actions = document.createElement("div");
+                actions.className = "actions";
+
+                // 標記完成/取消完成按鈕
+                const toggleButton = document.createElement("button");
+                toggleButton.textContent = todo.completed ? "取消完成" : "標記完成";
+                toggleButton.addEventListener("click", () => {
+                    todo.completed = !todo.completed;
+                    updateTodo(todo); // Update the todo after toggling the completion status
+                });
+
+                // 編輯按鈕
+                const editButton = document.createElement("button");
+                editButton.textContent = "編輯";
+                editButton.addEventListener("click", () => {
+                    const newTask = prompt("請輸入新的任務內容：", todo.task);
+                    if (newTask !== null) {
+                        todo.task = newTask.trim();
+                        updateTodo(todo); // Update the todo after editing the task
+                    }
+                });
+
+                // 刪除按鈕
+                const deleteButton = document.createElement("button");
+                deleteButton.textContent = "刪除";
+                deleteButton.addEventListener("click", () => {
+                    if (confirm(`確定要刪除 "${todo.task}" 代辦事項嗎？`)) {
+                        deleteTodo(todo); // Call the delete function
+                    }
+                });
+
+                actions.appendChild(toggleButton);
+                actions.appendChild(editButton);
+                actions.appendChild(deleteButton);
+                li.appendChild(actions);
+                todoList.appendChild(li);
+            });
+        }
+
+        // 顯示訊息
+        function displayMessage(text, type) {
+            message.textContent = text;
+            message.className = `message ${type}`;
+        }
+
+        // 頁面加載後自動獲取代辦事項
+        window.onload = function() {
+            const studentId = document.getElementById("student-id").value.trim();
+            if (studentId) {
+                fetchTodos(studentId);
+            }
+        };
+    </script>
+</body>
+</html>
